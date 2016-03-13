@@ -13,5 +13,6 @@ namespace siq {
 		Window(int w, int h, HINSTANCE hInstance, WNDPROC wndproc);
 		void show();
 		void handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+		inline HWND getHandle() const { return window; }
 	};
 }
