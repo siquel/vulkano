@@ -33,5 +33,18 @@ namespace siq {
 			return "UNKOWN_ERROR";
 		}
 	}
+
+	const char* vkDeviceTypeToString(const VkPhysicalDeviceType type) {
+		switch (type) {
+			TOSTR(PHYSICAL_DEVICE_TYPE_OTHER);
+			TOSTR(PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU);
+			TOSTR(PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
+			TOSTR(PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU);
+			TOSTR(PHYSICAL_DEVICE_TYPE_CPU);
+		default:
+			return "UNKNOWN_DEVICE";
+		}
+	}
 }
+
 #undef TOSTR

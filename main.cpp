@@ -5,6 +5,7 @@
 #include "trace.h"
 #include "vulkan_util.h"
 #include "siq.h"
+#include <vector>
 
 std::unique_ptr<siq::Window> window;
 
@@ -38,7 +39,7 @@ VkResult createInstance(VkInstance* to) {
 	appInfo.applicationVersion = 1;
 	appInfo.engineVersion = 1;
 	appInfo.pEngineName = "TopKek";
-	appInfo.apiVersion = VK_MAKE_VERSION(1, 0, 3); // looks like VK_MAKE_VERSION(1, 0, 5) fails..
+	appInfo.apiVersion = VK_MAKE_VERSION(1, 0, 4); // NVIDIA drivers have 1.0.4 support
 
 	// enable extensions
 	static const char* EnabledExtensions[] = {
@@ -66,9 +67,35 @@ VkResult createInstance(VkInstance* to) {
 
 void queryDevices(VkInstance instance) {
 	uint32_t gpuCount{ 0 };
-	VkResult error;
-	vkEnumeratePhysicalDevices(instance, &gpuCount, nullptr);
+	VkResult error = vkEnumeratePhysicalDevices(instance, &gpuCount, nullptr);
+
+	if (error) {
+		SIQ_TRACE("vkEnumeratePhysicalDevices failed: %s", siq::vkResultToString(error));
+		exit(1);
+	}
+
 	SIQ_TRACE("Found %d physical devices", gpuCount);
+	// no devices
+	if (!gpuCount) return;
+
+	std::vector<VkPhysicalDevice> devices;
+	devices.resize(gpuCount);
+	// fill the devices vector
+	vkEnumeratePhysicalDevices(instance, &gpuCount, devices.data());
+
+	for (VkPhysicalDevice device : devices) {
+		VkPhysicalDeviceProperties properties;
+		vkGetPhysicalDeviceProperties(device, &properties);
+		SIQ_TRACE("--- Device: %s of type %s, Supports Vulkan API version: %d.%d.%d",
+			properties.deviceName, 
+			siq::vkDeviceTypeToString(properties.deviceType),
+			VK_VERSION_MAJOR(properties.apiVersion),
+			VK_VERSION_MINOR(properties.apiVersion),
+			VK_VERSION_PATCH(properties.apiVersion));
+	}
+
+	VkPhysicalDevice device = devices[0];
+
 }
 
 void openConsole() {
@@ -92,6 +119,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 		SIQ_TRACE("failed to create vulkan instance: %s", siq::vkResultToString(error));
 		return 1;
 	}
+
+	queryDevices(instance);
 	/*
 	
 
