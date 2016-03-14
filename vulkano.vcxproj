@@ -133,6 +133,9 @@
     <ClCompile Include="src\window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\siq.h" />
+    <ClInclude Include="include\trace.h" />
+    <ClInclude Include="include\vulkan_util.h" />
     <ClInclude Include="include\window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
