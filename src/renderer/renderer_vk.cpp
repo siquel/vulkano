@@ -9,14 +9,25 @@
 
 
 namespace siq {
+
 	namespace vk {
-		
+
 		struct RendererContextVulkan : public RendererContext {
 			VkInstance instance{ nullptr };
 			VkPhysicalDevice physicalDevice{ nullptr };
 			VkDevice device{ nullptr };
 			VkQueue queue{ nullptr };
-			
+			VkSurfaceKHR surface{ nullptr };
+			//PFN_vkGetPhysicalDeviceSurfaceSupportKHR vkGetPhysicalDeviceSurfaceSupportKHR{ nullptr };
+			/*PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR;
+			PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR;
+			PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR;
+			PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR;
+			PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR;
+			PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
+			PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
+			PFN_vkQueuePresentKHR fpQueuePresentKHR;*/
+
 			const char* Name{ "TopKek" };
 			RendererContextVulkan() {
 
@@ -153,6 +164,17 @@ namespace siq {
 
 				// retrieve the gfx queue
 				vkGetDeviceQueue(device, graphicsQueueIndex, 0, &queue);
+
+				VkWin32SurfaceCreateInfoKHR surfaceCreateInfo;
+				surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+				surfaceCreateInfo.hinstance = PlatformData::getInstance().hinstance;
+				surfaceCreateInfo.hwnd = PlatformData::getInstance().hwnd;
+				error = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, nullptr, &surface);
+
+				if (error) {
+					SIQ_TRACE("Failed to create VkSurface: %s", siq::vkResultToString(error));
+					return false;
+				}
 
 				return true;
 			}

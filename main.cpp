@@ -41,11 +41,13 @@ void openConsole() {
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow) {
-
 	openConsole();
 
 	window = std::make_unique<siq::Window>(1280, 720, hInstance, WndProc);
 	window->show();
+
+	siq::PlatformData::getInstance().hwnd = window->getHandle();
+	siq::PlatformData::getInstance().hinstance = hInstance;
 
 	siq::RendererContext* vulkan = siq::vk::createRenderer();
 	/*
