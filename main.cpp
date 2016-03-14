@@ -104,6 +104,7 @@ const char* vkResultToString(const VkResult r) {
 	default:
 		return "UNKOWN_ERROR";
 	}
+#undef TOSTR
 }
 
 void openConsole() {
