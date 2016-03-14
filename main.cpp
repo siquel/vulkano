@@ -6,6 +6,8 @@
 #include "vulkan_util.h"
 #include "siq.h"
 #include <vector>
+#include <algorithm>
+#include <array>
 
 std::unique_ptr<siq::Window> window;
 
@@ -96,6 +98,32 @@ void queryDevices(VkInstance instance) {
 
 	VkPhysicalDevice device = devices[0];
 
+	// Get device queue that supports gfx operations VK_QUEUE_GRAPHICS_BIT
+	uint32_t graphicsQueueIndex{ 0 };
+	uint32_t queueCount{ 0 };
+	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueCount, nullptr);
+
+	if (!queueCount) {
+		SIQ_TRACE("Cannot find queue!");
+		exit(1);
+	}
+
+	std::vector<VkQueueFamilyProperties> queueProperties;
+	queueProperties.resize(queueCount);
+	// fill the vector
+	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueCount, queueProperties.data());
+	// get the index
+	auto search = std::find_if(std::begin(queueProperties), std::end(queueProperties), [](const VkQueueFamilyProperties& prop) {
+		return prop.queueFlags & VK_QUEUE_GRAPHICS_BIT;
+	});
+	if (search == std::end(queueProperties)) {
+		SIQ_TRACE("The device doesn't have VK_QUEUE_GRAPHICS_BIT set!");
+		exit(1);
+	}
+	graphicsQueueIndex = std::distance(std::begin(queueProperties), search);
+	SIQ_TRACE("Using graphicsQueueIndex %d", graphicsQueueIndex);
+
+	//std::array<float, 1> queuePriorities = { 0.f };
 }
 
 void openConsole() {
