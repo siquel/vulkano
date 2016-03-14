@@ -3,7 +3,7 @@
 
 #define TOSTR(r) case VK_##r: return #r;
 namespace siq {
-	const char* vkResultToString(const VkResult r) {
+	inline const char* vkResultToString(const VkResult r) {
 		switch (r) {
 			TOSTR(SUCCESS);
 			TOSTR(NOT_READY);
@@ -34,7 +34,7 @@ namespace siq {
 		}
 	}
 
-	const char* vkDeviceTypeToString(const VkPhysicalDeviceType type) {
+	inline const char* vkDeviceTypeToString(const VkPhysicalDeviceType type) {
 		switch (type) {
 			TOSTR(PHYSICAL_DEVICE_TYPE_OTHER);
 			TOSTR(PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU);

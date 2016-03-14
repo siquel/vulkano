@@ -12,7 +12,7 @@ namespace siq {
 	}
 
 
-	void trace(const char* path, uint16_t line, const char* fmt, ...) {
+	inline void trace(const char* path, uint16_t line, const char* fmt, ...) {
 		va_list args;
 		va_start(args, fmt);
 		char temp[8192];

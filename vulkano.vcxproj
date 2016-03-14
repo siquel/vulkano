@@ -130,9 +130,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\renderer\renderer_vk.cpp" />
     <ClCompile Include="src\window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\renderer\renderer_context.h" />
+    <ClInclude Include="include\renderer\renderer_vk.h" />
     <ClInclude Include="include\siq.h" />
     <ClInclude Include="include\trace.h" />
     <ClInclude Include="include\vulkan_util.h" />
