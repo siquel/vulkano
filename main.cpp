@@ -85,9 +85,9 @@ void queryDevices(VkInstance instance) {
 	// fill the devices vector
 	vkEnumeratePhysicalDevices(instance, &gpuCount, devices.data());
 
-	for (VkPhysicalDevice device : devices) {
+	for (VkPhysicalDevice physicalDevice : devices) {
 		VkPhysicalDeviceProperties properties;
-		vkGetPhysicalDeviceProperties(device, &properties);
+		vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 		SIQ_TRACE("--- Device: %s of type %s, Supports Vulkan API version: %d.%d.%d",
 			properties.deviceName, 
 			siq::vkDeviceTypeToString(properties.deviceType),
@@ -96,12 +96,12 @@ void queryDevices(VkInstance instance) {
 			VK_VERSION_PATCH(properties.apiVersion));
 	}
 
-	VkPhysicalDevice device = devices[0];
+	VkPhysicalDevice physicalDevice = devices[0];
 
 	// Get device queue that supports gfx operations VK_QUEUE_GRAPHICS_BIT
 	uint32_t graphicsQueueIndex{ 0 };
 	uint32_t queueCount{ 0 };
-	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueCount, nullptr);
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, nullptr);
 
 	if (!queueCount) {
 		SIQ_TRACE("Cannot find queue!");
@@ -111,7 +111,7 @@ void queryDevices(VkInstance instance) {
 	std::vector<VkQueueFamilyProperties> queueProperties;
 	queueProperties.resize(queueCount);
 	// fill the vector
-	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueCount, queueProperties.data());
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, queueProperties.data());
 	// get the index
 	auto search = std::find_if(std::begin(queueProperties), std::end(queueProperties), [](const VkQueueFamilyProperties& prop) {
 		return prop.queueFlags & VK_QUEUE_GRAPHICS_BIT;
@@ -120,10 +120,50 @@ void queryDevices(VkInstance instance) {
 		SIQ_TRACE("The device doesn't have VK_QUEUE_GRAPHICS_BIT set!");
 		exit(1);
 	}
-	graphicsQueueIndex = std::distance(std::begin(queueProperties), search);
+	graphicsQueueIndex = static_cast<uint32_t>(std::distance(std::begin(queueProperties), search));
 	SIQ_TRACE("Using graphicsQueueIndex %d", graphicsQueueIndex);
 
-	//std::array<float, 1> queuePriorities = { 0.f };
+	// create the queue
+	std::array<float, 1> queuePriorities = { 0.f };
+	VkDeviceQueueCreateInfo queueCreateInfo = {};
+	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	queueCreateInfo.queueFamilyIndex = graphicsQueueIndex;
+	queueCreateInfo.queueCount = 1;
+	queueCreateInfo.pQueuePriorities = queuePriorities.data();
+
+	// Create the actual device now
+
+	static const char* EnabledExtensions[] = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
+
+	VkDeviceCreateInfo deviceCreateInfo = {};
+	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	deviceCreateInfo.pNext = nullptr;
+	deviceCreateInfo.queueCreateInfoCount = 1;
+	deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+	deviceCreateInfo.pEnabledFeatures = nullptr;
+
+	if (COUNTOF(EnabledExtensions) > 0) {
+		deviceCreateInfo.enabledExtensionCount = COUNTOF(EnabledExtensions);
+		deviceCreateInfo.ppEnabledExtensionNames = EnabledExtensions;
+	}
+
+	SIQ_TRACE("Creating VkDevice....");
+
+	VkDevice device;
+
+	error = vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device);
+
+	if (error) {
+		SIQ_TRACE("Failed to create device: %s", siq::vkResultToString(error));
+		exit(1);
+	}
+	else {
+		SIQ_TRACE("Success...");
+	}
+
+	
 }
 
 void openConsole() {
