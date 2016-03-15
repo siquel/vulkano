@@ -7,6 +7,24 @@
 #include <algorithm>
 #include <array>
 
+#define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                                        \
+{                                                                                       \
+    fp##entrypoint = (PFN_vk##entrypoint) vkGetInstanceProcAddr(inst, "vk"#entrypoint); \
+    if (fp##entrypoint == NULL) {                                                       \
+        SIQ_TRACE("vkGetInstanceProcAddr failed to find vk" #entrypoint);               \
+		return false;                                                                   \
+    }                                                                                   \
+}
+
+#define GET_DEVICE_PROC_ADDR(dev, entrypoint)                           \
+{                                                                                       \
+    fp##entrypoint = (PFN_vk##entrypoint) vkGetDeviceProcAddr(dev, "vk"#entrypoint);    \
+    if (fp##entrypoint == NULL) {                                                       \
+        SIQ_TRACE("vkGetDeviceProcAddr failed to find vk" #entrypoint);                 \
+		return false;                                                                   \
+    }                                                                                   \
+}
+
 
 namespace siq {
 
@@ -18,17 +36,20 @@ namespace siq {
 			VkDevice device{ nullptr };
 			VkQueue queue{ nullptr };
 			VkSurfaceKHR surface{ nullptr };
-			//PFN_vkGetPhysicalDeviceSurfaceSupportKHR vkGetPhysicalDeviceSurfaceSupportKHR{ nullptr };
-			/*PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR;
-			PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR;
-			PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR;
-			PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR;
-			PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR;
-			PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
-			PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
-			PFN_vkQueuePresentKHR fpQueuePresentKHR;*/
-
+			PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR{ nullptr };
+			PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR{ nullptr };
+			PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR{ nullptr };
+			PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR{ nullptr };
+			PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR{ nullptr };
+			PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR{ nullptr };
+			PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR{ nullptr };
+			PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR{ nullptr };
+			PFN_vkQueuePresentKHR fpQueuePresentKHR{ nullptr };
+			VkFormat surfaceFormat{ VK_FORMAT_UNDEFINED };
+			VkCommandPool commandPool{ nullptr };
+			VkCommandBuffer commandBuffer{ nullptr };
 			const char* Name{ "TopKek" };
+			
 			RendererContextVulkan() {
 
 			}
@@ -165,6 +186,53 @@ namespace siq {
 				// retrieve the gfx queue
 				vkGetDeviceQueue(device, graphicsQueueIndex, 0, &queue);
 
+				// get the func pointers
+				GET_INSTANCE_PROC_ADDR(instance, GetPhysicalDeviceSurfaceCapabilitiesKHR);
+				GET_INSTANCE_PROC_ADDR(instance, GetPhysicalDeviceSurfaceFormatsKHR);
+				GET_INSTANCE_PROC_ADDR(instance, GetPhysicalDeviceSurfacePresentModesKHR);
+				GET_INSTANCE_PROC_ADDR(instance, GetPhysicalDeviceSurfaceSupportKHR);
+				GET_INSTANCE_PROC_ADDR(instance, CreateSwapchainKHR);
+				GET_INSTANCE_PROC_ADDR(instance, DestroySwapchainKHR);
+				GET_INSTANCE_PROC_ADDR(instance, GetSwapchainImagesKHR);
+				GET_INSTANCE_PROC_ADDR(instance, AcquireNextImageKHR);
+				GET_INSTANCE_PROC_ADDR(instance, QueuePresentKHR);
+
+				if (!initSwapchain()) {
+					SIQ_TRACE("initSwapchain failed");
+					return false;
+				}
+
+				VkCommandPoolCreateInfo cmdPoolInfo = {};
+				cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+				cmdPoolInfo.pNext = nullptr;
+				cmdPoolInfo.queueFamilyIndex = graphicsQueueIndex;
+				cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+				error = vkCreateCommandPool(device, &cmdPoolInfo, nullptr, &commandPool);
+
+				if (error) {
+					SIQ_TRACE("vkCreateCommandPool failed: %s", siq::vkResultToString(error));
+					return false;
+				}
+
+				VkCommandBufferAllocateInfo cmd;
+				cmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+				cmd.pNext = NULL;
+				cmd.commandPool = commandPool;
+				cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+				cmd.commandBufferCount = 1;
+
+				error = vkAllocateCommandBuffers(device, &cmd, &commandBuffer);
+
+				if (error) {
+					SIQ_TRACE("vkAllocateCommandBuffers failed: %s", siq::vkResultToString(error));
+					return false;
+				}
+				return true;
+			}
+
+			bool initSwapchain() {
+				VkResult error;
 				VkWin32SurfaceCreateInfoKHR surfaceCreateInfo;
 				surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 				surfaceCreateInfo.hinstance = PlatformData::getInstance().hinstance;
@@ -174,6 +242,32 @@ namespace siq {
 				if (error) {
 					SIQ_TRACE("Failed to create VkSurface: %s", siq::vkResultToString(error));
 					return false;
+				}
+
+				// Get the list of VkFormat's that are supported:
+				uint32_t formatCount{ 0 };
+				error = fpGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
+				if (error) {
+					SIQ_TRACE("fpGetPhysicalDeviceSurfaceFormatsKHR failed: %s", siq::vkResultToString(error));
+					return false;
+				}
+
+				std::vector<VkSurfaceFormatKHR> surfaceFormats;
+				surfaceFormats.resize(formatCount);
+				error = fpGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, surfaceFormats.data());
+				if (error) {
+					SIQ_TRACE("fpGetPhysicalDeviceSurfaceFormatsKHR failed: %s", siq::vkResultToString(error));
+					return false;
+				}
+
+				// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
+				// the surface has no preferred format.  Otherwise, at least one
+				// supported format will be returned.
+				if (formatCount == 1 && surfaceFormats[0].format == VK_FORMAT_UNDEFINED) {
+					surfaceFormat = VK_FORMAT_B8G8R8A8_UNORM;
+				}
+				else {
+					surfaceFormat = surfaceFormats[0].format;
 				}
 
 				return true;
