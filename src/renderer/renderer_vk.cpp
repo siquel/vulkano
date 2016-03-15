@@ -48,10 +48,16 @@ namespace siq {
 			VkFormat surfaceFormat{ VK_FORMAT_UNDEFINED };
 			VkCommandPool commandPool{ nullptr };
 			VkCommandBuffer commandBuffer{ nullptr };
+			VkSwapchainKHR swapchain{ nullptr };
 			const char* Name{ "TopKek" };
-			
+			int width;
+			int height;
 			RendererContextVulkan() {
-
+				RECT rect;
+				// should this be window?
+				GetClientRect(siq::PlatformData::getInstance().hwnd, &rect);
+				width = rect.right - rect.left;
+				height = rect.bottom - rect.top;
 			}
 			~RendererContextVulkan() override {}
 
@@ -271,6 +277,80 @@ namespace siq {
 				}
 
 				return true;
+			}
+
+			bool createSwapchain() {
+				VkResult error;
+				VkSwapchainKHR oldSwapchain = swapchain;
+
+				// Check the surface capabilities and formats
+				VkSurfaceCapabilitiesKHR surfaceCaps;
+
+				uint32_t presentModeCount{ 0 };
+				std::vector<VkPresentModeKHR> presentModes;
+				
+				error = fpGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps);
+
+				if (error) {
+					SIQ_TRACE("fpGetPhysicalDeviceSurfaceCapabilitiesKHR failed %s", siq::vkResultToString(error));
+					return false;
+				}
+
+				error = fpGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
+				presentModes.resize(presentModeCount);
+
+				error = fpGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data());
+
+				if (error) {
+					SIQ_TRACE("fpGetPhysicalDeviceSurfacePresentModesKHR failed %s", siq::vkResultToString(error));
+					return false;
+				}
+
+				VkExtent2D swapchainExtent;
+				// width and height are either both -1, or both not -1.
+				if (surfaceCaps.currentExtent.width == (uint32_t)-1) {
+					// If the surface size is undefined, the size is set to
+					// the size of the images requested.
+					swapchainExtent.width = width;
+					swapchainExtent.height = height;
+				}
+				else {
+					// If the surface size is defined, the swap chain size must match
+					swapchainExtent = surfaceCaps.currentExtent;
+					width = surfaceCaps.currentExtent.width;
+					height = surfaceCaps.currentExtent.height;
+				}
+
+				VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+				// Prefer mailbox mode if present, it's the lowest latency non-tearing present  mode
+				for (size_t i = 0; i < presentModeCount; i++) {
+					if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+						swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+						break;
+					}
+					if ((swapchainPresentMode != VK_PRESENT_MODE_MAILBOX_KHR) && (presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)) {
+						swapchainPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+					}
+				}
+
+				// Determine the number of VkImage's to use in the swap chain (we desire to
+				// own only 1 image at a time, besides the images being displayed and
+				// queued for display):
+				uint32_t desiredNumberOfSwapchainImages = surfaceCaps.minImageCount + 1;
+				if ((surfaceCaps.maxImageCount > 0) && (desiredNumberOfSwapchainImages > surfaceCaps.maxImageCount)) {
+					// Application must settle for fewer images than desired:
+					desiredNumberOfSwapchainImages = surfaceCaps.maxImageCount;
+				}
+
+				VkSurfaceTransformFlagsKHR preTransform;
+				if (surfaceCaps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+					preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+				}
+				else {
+					preTransform = surfaceCaps.currentTransform;
+				}
+
+				// TODO create the actual swap chain
 			}
 
 			void shutdown() {
